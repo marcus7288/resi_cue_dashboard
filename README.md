@@ -58,9 +58,11 @@ Set in **Admin → Cue delivery**.
 
 - **`simulate`** (default) — nothing leaves the browser. Cues are logged as if
   sent. Use it for rehearsal, volunteer training, and any dry run.
-- **`webhook`** — POSTs a JSON payload to any HTTPS URL. This is the mode most
+- **`webhook`** — POSTs a JSON payload to a URL **template**, so one setting
+  addresses a different control per cue and per site. This is the mode most
   churches will actually use, because it drives Bitfocus Companion,
-  ProPresenter, or an automation hook directly.
+  ProPresenter, or an automation hook directly. Placeholders: `{siteRef}`,
+  `{cueRef}`, `{cueType}`, `{cueId}`, `{siteId}`, `{venueId}`, `{channelId}`.
 - **`resi`** — POSTs through a serverless function that holds the Resi API
   token server-side.
 
@@ -77,8 +79,10 @@ The payload sent in `webhook` and `resi` modes:
   "cueId": "cue-video-start",
   "cueLabel": "Roll sermon video",
   "cueType": "video-start",
+  "cueRef": "1/3",
   "siteId": "site-lag-1",
   "siteName": "North Campus (lag)",
+  "siteRef": "3",
   "venueId": "…",
   "channelId": "…",
   "airTime": "2026-09-20T15:55:00.000Z",
@@ -105,8 +109,16 @@ CRLF injection, and it forwards only POST and PUT with `redirect: "manual"` so a
 redirect cannot carry the token to another host. These rules are covered by 23
 tests.
 
-Set `DASHBOARD_SHARED_SECRET` in production. Without it, the function is
-reachable by anyone who knows the URL.
+`DASHBOARD_SHARED_SECRET` gates the function, and the browser sends it from the
+build-time `VITE_DASHBOARD_SECRET`. Set both or neither — setting only the
+server side makes every cue fail with 401.
+
+Be clear-eyed about what that buys you: a static site ships its JavaScript to
+the browser, so a build-time value is readable by anyone who can load the page.
+It raises the bar from *anyone who knows the function URL* to *anyone who can
+load your dashboard*. That is useful against opportunistic scanning; it is not
+access control. For real access control, protect the whole site (Netlify
+password protection or Identity) or don't host it publicly.
 
 ---
 
@@ -115,10 +127,29 @@ reachable by anyone who knows the URL.
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 95 unit tests
+npm run booth      # serve dist/ + proxy to Companion (see INTEGRATION.md)
+npm test           # 112 unit tests
 npm run typecheck  # tsc --noEmit
 npm run build      # typecheck + production build to dist/
 ```
+
+## Deploying to a tech booth (Bitfocus Companion)
+
+A browser on an **HTTPS** page may not fetch `http://companion.local:8000`
+(mixed content), and a cross-origin JSON POST is blocked unless Companion
+answers the CORS preflight. Both were verified in a real browser. So a
+**Netlify-hosted dashboard cannot drive a Companion on your LAN.**
+
+Booth mode removes both problems by serving the dashboard and forwarding to
+Companion from one origin:
+
+```bash
+npm run build
+COMPANION_URL=http://127.0.0.1:8000 PORT=3000 npm run booth
+```
+
+Then set the webhook URL in Admin to `/api/location/{siteRef}/{cueRef}/press`.
+Full walkthrough in **[INTEGRATION.md](INTEGRATION.md)**.
 
 ## Deploying to Netlify
 
@@ -131,7 +162,8 @@ npm run build      # typecheck + production build to dist/
    | --- | --- | --- |
    | `RESI_API_BASE` | yes | API origin, e.g. `https://api.resi.io`, no trailing slash |
    | `RESI_API_TOKEN` | yes | Bearer credential. Server-side only. |
-   | `DASHBOARD_SHARED_SECRET` | strongly recommended | Callers must send a matching `X-Dashboard-Secret` header |
+   | `DASHBOARD_SHARED_SECRET` | optional | Callers must send a matching `X-Dashboard-Secret` header |
+   | `VITE_DASHBOARD_SECRET` | only with the above | Build-time value the browser sends. Must match. |
 
    `simulate` and `webhook` modes need no environment variables at all.
 
@@ -180,7 +212,12 @@ src/lib/storage.ts      defensive config load/save
 src/components/         Scrubber, CuePanel, AdminPanel, TimeField
 src/hooks/              useClock, useConfig, useCueRunner
 netlify/functions/      Resi proxy + endpoint validation
+tools/booth-server.mjs  same-origin server for booth/Companion deployment
 ```
 
-The timing math, scheduling, validation, config coercion and proxy validation
-are pure functions with no React dependency — that is where the tests live.
+The timing math, scheduling, validation, config coercion, URL templating and
+proxy validation are pure functions with no React dependency — that is where
+the tests live.
+
+See **[INTEGRATION.md](INTEGRATION.md)** for step-by-step Bitfocus Companion
+and studio.resi.io setup.

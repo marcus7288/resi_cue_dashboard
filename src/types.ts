@@ -10,6 +10,11 @@ export interface Site {
   venueId: string;
   /** Resi channel or decoder identifier. */
   channelId: string;
+  /**
+   * Control-surface reference for this site, used by {siteRef} in a webhook
+   * template. For Bitfocus Companion this is normally the button page number.
+   */
+  ref: string;
   /** Seconds this site runs behind the primary. Always 0 for the primary site. */
   lagSeconds: number;
   /** Operator-measured signal-chain correction, in milliseconds. May be negative. */
@@ -25,6 +30,11 @@ export interface Cue {
   type: CueType;
   /** Position along the service program, in seconds from service start. */
   programTimeSec: number;
+  /**
+   * Control-surface reference for this cue, used by {cueRef} in a webhook
+   * template. For Bitfocus Companion this is normally "row/column".
+   */
+  ref: string;
   /** Site ids this cue fires at. Empty means "every enabled site". */
   targetSiteIds: string[];
   /** Free-form note shown to the operator in the run-of-show. */
@@ -37,7 +47,11 @@ export type TransportMode = "simulate" | "webhook" | "resi";
 
 export interface TransportConfig {
   mode: TransportMode;
-  /** Webhook mode: URL that receives a POST with the cue payload. */
+  /**
+   * Webhook mode: URL template that receives a POST with the cue payload.
+   * Supports {siteRef}, {cueRef}, {cueType}, {cueId}, {siteId}, {venueId},
+   * {channelId} — so one setting can address a different control per cue.
+   */
   webhookUrl: string;
   /**
    * Resi mode: path of the serverless proxy that holds the API token.

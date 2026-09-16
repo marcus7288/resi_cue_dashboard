@@ -123,6 +123,7 @@ export default function AdminPanel({ cfg }: Props) {
                 role: "lag",
                 venueId: "",
                 channelId: "",
+                ref: "",
                 lagSeconds: 1800,
                 trimMs: 0,
                 enabled: true,
@@ -209,6 +210,22 @@ export default function AdminPanel({ cfg }: Props) {
                 }}
               />
             </label>
+            <label className="field" htmlFor={`ref-${site.id}`}>
+              <span className="field-label">Control ref &#123;siteRef&#125;</span>
+              <input
+                id={`ref-${site.id}`}
+                className="input mono"
+                value={site.ref}
+                placeholder="Companion page, e.g. 2"
+                onChange={(e) => {
+                  const v = e.currentTarget.value;
+                  patch((d) => {
+                    const s = d.sites[index];
+                    if (s) s.ref = v;
+                  });
+                }}
+              />
+            </label>
             {site.role === "lag" && (
               <TimeField
                 id={`lag-${site.id}`}
@@ -287,6 +304,7 @@ export default function AdminPanel({ cfg }: Props) {
                 label: `Cue ${d.cues.length + 1}`,
                 type: "custom",
                 programTimeSec: 0,
+                ref: "",
                 targetSiteIds: [],
                 notes: "",
                 enabled: true,
@@ -352,6 +370,22 @@ export default function AdminPanel({ cfg }: Props) {
                 })
               }
             />
+            <label className="field" htmlFor={`ref-${cue.id}`}>
+              <span className="field-label">Control ref &#123;cueRef&#125;</span>
+              <input
+                id={`ref-${cue.id}`}
+                className="input mono"
+                value={cue.ref}
+                placeholder="Companion row/column, e.g. 1/3"
+                onChange={(e) => {
+                  const v = e.currentTarget.value;
+                  patch((d) => {
+                    const c = d.cues[index];
+                    if (c) c.ref = v;
+                  });
+                }}
+              />
+            </label>
             <label className="field" htmlFor={`notes-${cue.id}`}>
               <span className="field-label">Notes</span>
               <input
@@ -453,7 +487,7 @@ export default function AdminPanel({ cfg }: Props) {
               id="webhook-url"
               className="input mono"
               value={config.transport.webhookUrl}
-              placeholder="https://..."
+              placeholder="http://companion.local:8000/api/location/{siteRef}/{cueRef}/press"
               onChange={(e) => {
                 const v = e.currentTarget.value;
                 patch((d) => {
@@ -461,6 +495,12 @@ export default function AdminPanel({ cfg }: Props) {
                 });
               }}
             />
+            <span className="hint">
+              Placeholders: <code>{"{siteRef}"}</code>, <code>{"{cueRef}"}</code>,{" "}
+              <code>{"{cueType}"}</code>, <code>{"{cueId}"}</code>, <code>{"{siteId}"}</code>.
+              Set each site&apos;s and cue&apos;s control ref above so one URL addresses a
+              different button per cue.
+            </span>
           </label>
         )}
 
